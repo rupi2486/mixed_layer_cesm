@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grab-cesm"
+version = "0.1.0"
+description = "Lightweight accessor for CESM2 Large Ensemble data on the NCAR AWS S3 archive"
+requires-python = ">=3.10"
+dependencies = [
+    "xarray>=2022.6",
+    "zarr",
+    "s3fs>=2026.3.0",
+    "numpy",
+]
+
+[project.optional-dependencies]
+plot = [
+    "matplotlib",
+    "nc-time-axis",
+]
+

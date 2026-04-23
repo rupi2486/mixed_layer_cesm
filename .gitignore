@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Python
+.pypirc
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+env/
+
+# Generated outputs
+*.png
