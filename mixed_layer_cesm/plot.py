@@ -1,37 +1,36 @@
+import numpy as np
 import matplotlib.pyplot as plt
 
-from calculate import (
-    create_profiles,
-    density_profile,
-    density_gradient,
-    find_mld
-)
-
 # -----------------------------
-# Run the pipeline
+# Load saved results
 # -----------------------------
-z, T, S = create_profiles()
+data = np.load("data_cache/mld_results.npz")
 
-rho = density_profile(T, S, z)
-drho_dz = density_gradient(z, rho)
-
-mld = find_mld(z, drho_dz, threshold=0.01)
+z = data["z"]
+rho_smooth = data["rho_smooth"]
+mld_value = data["mld_value"]
 
 # -----------------------------
 # Plot
 # -----------------------------
-plt.figure(figsize=(5,6))
+plt.figure()
 
-plt.plot(rho, z, label="Density")
+plt.plot(rho_smooth, z, label="Density")
 
-# mark mixed layer depth
-if mld is not None:
-    plt.axhline(mld, linestyle='--', label=f"MLD ≈ {mld:.1f} m")
+if not np.isnan(mld_value):
+    plt.axhline(mld_value, color="red", linestyle="--", label="MLD")
+
+    plt.text(
+        0.98, 0.95,
+        f"MLD = {mld_value:.1f} m",
+        transform=plt.gca().transAxes,
+        ha="right",
+        va="top",
+        bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
+    )
 
 plt.gca().invert_yaxis()
 plt.xlabel("Density (kg/m³)")
 plt.ylabel("Depth (m)")
-plt.title("Density Profile and Mixed Layer Depth")
 plt.legend()
-
 plt.show()

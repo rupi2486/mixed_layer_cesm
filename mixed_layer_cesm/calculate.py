@@ -1,70 +1,110 @@
 import numpy as np
+import xarray as xr
+import scipy.ndimage as nd
 import gsw
-
+import os
 from mixed_layer_cesm import open_cesm2le
 
-# Open lazily — no data downloaded yet
-da = open_cesm2le(
+# -----------------------------
+# Load temperature
+# -----------------------------
+da_temp = open_cesm2le(
     "TEMP",
     component="ocn",
     scenario="historical",
     forcing="cmip6",
-    time_slice=("1990-01", "2000-12"),
-    lat=slice(20,25),      # Colorado-ish
-    lon=slice(180,185),  # negative °W values; converted to 0–360 internally
-    members=0,                  # first ensemble member only
+    lat=slice(20, 25),
+    lon=slice(180, 185),
+    members=0,
+).sel(time="1990-02").load()
+
+# -----------------------------
+# Load salinity
+# -----------------------------
+da_salt = open_cesm2le(
+    "SALT",
+    component="ocn",
+    scenario="historical",
+    forcing="cmip6",
+    lat=slice(20, 25),
+    lon=slice(180, 185),
+    members=0,
+).sel(time="1990-02").load()
+
+# -----------------------------
+# Depth (m)
+# -----------------------------
+z = da_temp["z_t"].values / 100.0
+z = np.squeeze(z)
+
+z_m = da_temp["z_t"] / 100.0
+
+# -----------------------------
+# Pressure
+# -----------------------------
+p = xr.apply_ufunc(
+    gsw.p_from_z,
+    -z_m,
+    22.5,
+    vectorize=True
 )
 
-print("Lazy DataArray before loading:")
-print(da, "\n")
-
-# Download the subset (small — one member, 11 years, ~handful of grid cells)
-da = da.load()
+# -----------------------------
+# Conservative temperature
+# -----------------------------
+CT = xr.apply_ufunc(
+    gsw.CT_from_t,
+    da_salt,
+    da_temp,
+    p,
+    vectorize=True
+)
 
 # -----------------------------
-# 1. Create profiles (this is random unitl I get the data)
+# Density
 # -----------------------------
-def create_profiles():
-    z = np.linspace(0, 2000, 200)
-
-    # mixed layer + thermocline (better test case)
-    T = np.piecewise(
-        z,
-        [z < 100, z >= 100],
-        [lambda z: 20, lambda z: 20 - 0.02*(z-100)]
-    )
-
-    S = np.piecewise(
-        z,
-        [z < 100, z >= 100],
-        [lambda z: 34.5, lambda z: 34.5 + 0.002*(z-100)]
-    )
-
-    return z, T, S
-
+rho = xr.apply_ufunc(
+    gsw.rho,
+    da_salt,
+    CT,
+    p,
+    vectorize=True
+)
 
 # -----------------------------
-# 2. Density
+# Horizontal mean profile
 # -----------------------------
-def density_profile(T, S, z, lat=40, lon=0):
-    p = gsw.p_from_z(-z, lat)
-    SA = gsw.SA_from_SP(S, p, lon, lat)
-    CT = gsw.CT_from_t(SA, T, p)
-    return gsw.rho(SA, CT, p)
-
+rho_prof = rho.mean(dim=["nlat", "nlon"]).squeeze()
+rho_vals = rho_prof.values
 
 # -----------------------------
-# 3. Gradient
+# sort + smooth
 # -----------------------------
-def density_gradient(z, rho):
-    return np.gradient(rho, z)
+sort_idx = np.argsort(z)
+z = z[sort_idx]
+rho_vals = rho_vals[sort_idx]
 
+rho_smooth = nd.gaussian_filter1d(rho_vals, sigma=2)
 
 # -----------------------------
-# 4. Mixed Layer Depth
+# gradient + MLD
 # -----------------------------
-def find_mld(z, drho_dz, threshold=0.01):
-    for zi, grad in zip(z, drho_dz):
-        if abs(grad) > threshold:
-            return zi
-    return None
+drho_dz = np.gradient(rho_smooth, z)
+
+threshold = 0.01
+idx = np.where(np.abs(drho_dz) > threshold)[0]
+
+mld_value = z[idx[0]] if len(idx) > 0 else np.nan
+
+# -----------------------------
+# SAVE RESULTS
+# -----------------------------
+os.makedirs("data_cache", exist_ok=True)
+np.savez(
+    "data_cache/mld_results.npz",
+    z=z,
+    rho_smooth=rho_smooth,
+    mld_value=mld_value
+)
+
+print("Saved MLD results.")

@@ -29,7 +29,7 @@ print(da, "\n")
 da = da.load()
 
 # Spatial mean → time series, convert K → °C
-ts = da.mean(["lat", "lon"]) - 273.15
+ts = da.mean(["lat", "lon"]) 
 
 fig, ax = plt.subplots(figsize=(10, 4))
 ts.plot(ax=ax)

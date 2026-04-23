@@ -1,6 +1,7 @@
 # grab-cesm
 
 A lightweight Python package for accessing the [CESM2 Large Ensemble](https://www.cesm.ucar.edu/community-projects/lens2) (CESM2-LE) hosted on the [NCAR AWS S3 archive](https://registry.opendata.aws/ncar-cesm2-lens/). No account or credentials required — the bucket is publicly accessible.
+To choose a latitude and logitude that you want to determine the mixed layer depth of for a specific date.
 
 Data are opened **lazily** via [Zarr](https://zarr.dev/) and [xarray](https://docs.xarray.dev/), so you only download the chunks you actually use.
 
