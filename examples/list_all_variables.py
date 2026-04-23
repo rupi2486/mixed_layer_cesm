@@ -6,7 +6,7 @@ Run:
     python examples/list_all_variables.py
 """
 
-from grab_cesm import COMPONENTS, FORCINGS, SCENARIOS, list_variables
+from mixed_layer_cesm import COMPONENTS, FORCINGS, SCENARIOS, list_variables
 
 for component in COMPONENTS:
     for scenario in SCENARIOS:

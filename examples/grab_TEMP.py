@@ -8,17 +8,17 @@ Run:
 
 import matplotlib.pyplot as plt
 
-from grab_cesm import open_cesm2le
+from mixed_layer_cesm import open_cesm2le
 
 # Open lazily — no data downloaded yet
 da = open_cesm2le(
-    "TREFHT",
-    component="atm",
+    "TEMP",
+    component="ocn",
     scenario="historical",
     forcing="cmip6",
     time_slice=("1990-01", "2000-12"),
-    lat=slice(37.0, 41.0),      # Colorado-ish
-    lon=slice(-109.0, -102.0),  # negative °W values; converted to 0–360 internally
+    lat=slice(20,25),      # Colorado-ish
+    lon=slice(180,185),  # negative °W values; converted to 0–360 internally
     members=0,                  # first ensemble member only
 )
 
