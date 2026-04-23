@@ -1,32 +1,52 @@
 import argparse
-from .core import open_geopotential, geostrophic_wind, load   # your imports
+from mixed_layer_cesm.calculate import compute_mld
+import os
+import numpy as np
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compute mixed layer depth from temperature and salinity"
+        description="Run Mixed Layer Depth calculation"
     )
-    parser.add_argument("--level",  type=int,   default=500,
-                        help="Pressure level in hPa (default: 500)")
-    parser.add_argument("--lat",    type=float, nargs=2, default=[20.0, 60.0],
-                        metavar=("SOUTH", "NORTH"))
-    parser.add_argument("--lon",    type=float, nargs=2, default=[-135.0, -60.0],
-                        metavar=("WEST", "EAST"))
-    parser.add_argument("--time",   type=str,   nargs=2, required=True,
-                        metavar=("START", "END"))
-    parser.add_argument("-o", "--output", default="geowind_out.nc",
-                        help="Output NetCDF filename")
+
+    parser.add_argument("--lat", type=float, required=True,
+                        help="Latitude (single value)")
+
+    parser.add_argument("--lon", type=float, required=True,
+                        help="Longitude (single value)")
+
+    parser.add_argument("--time", type=str, required=True,
+                        help="Date (YYYY-MM-DD)")
+
+    parser.add_argument("-o", "--output",
+                        default="data_cache/mld_results.npz",
+                        help="Output file path")
+
     args = parser.parse_args()
 
-    phi = open_geopotential(
-        time_slice=tuple(args.time),
-        level=args.level,
-        lat=tuple(args.lat),
-        lon=tuple(args.lon),
+    # run core computation (NOW returns tuple)
+    z, rho_smooth, mld_value = compute_mld(
+        args.lat,
+        args.lon,
+        args.time
     )
-    phi  = load(phi)
-    ug, vg = geostrophic_wind(phi)
-    ug.to_netcdf(args.output)
-    print(f"Saved to {args.output}")
+
+    # save
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+
+    np.savez(
+        args.output,
+        z=z,
+        rho_smooth=rho_smooth,
+        mld_value=mld_value,
+        lat=args.lat,
+        lon=args.lon,
+        time=args.time
+    )
+
+    print(f"Saved MLD results → {args.output}")
+    print(f"MLD = {mld_value:.2f} m")
+
 
 if __name__ == "__main__":
     main()

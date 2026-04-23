@@ -5,106 +5,101 @@ import gsw
 import os
 from mixed_layer_cesm import open_cesm2le
 
-# -----------------------------
-# Load temperature
-# -----------------------------
-da_temp = open_cesm2le(
-    "TEMP",
-    component="ocn",
-    scenario="historical",
-    forcing="cmip6",
-    lat=slice(20, 25),
-    lon=slice(180, 185),
-    members=0,
-).sel(time="1990-02").load()
 
-# -----------------------------
-# Load salinity
-# -----------------------------
-da_salt = open_cesm2le(
-    "SALT",
-    component="ocn",
-    scenario="historical",
-    forcing="cmip6",
-    lat=slice(20, 25),
-    lon=slice(180, 185),
-    members=0,
-).sel(time="1990-02").load()
+def compute_mld(lat, lon, time):
 
-# -----------------------------
-# Depth (m)
-# -----------------------------
-z = da_temp["z_t"].values / 100.0
-z = np.squeeze(z)
+    # -----------------------------
+    # Load temperature
+    # -----------------------------
+    ds_temp = open_cesm2le(
+        "TEMP",
+        component="ocn",
+        scenario="historical",
+        forcing="cmip6",
+        members=0,
+    ).sel(time=time).load()
 
-z_m = da_temp["z_t"] / 100.0
+    # -----------------------------
+    # Load salinity
+    # -----------------------------
+    ds_salt = open_cesm2le(
+        "SALT",
+        component="ocn",
+        scenario="historical",
+        forcing="cmip6",
+        members=0,
+    ).sel(time=time).load()
 
-# -----------------------------
-# Pressure
-# -----------------------------
-p = xr.apply_ufunc(
-    gsw.p_from_z,
-    -z_m,
-    22.5,
-    vectorize=True
-)
+    lat2d = ds_temp["nlat"]
+    lon2d = ds_temp["nlon"]
 
-# -----------------------------
-# Conservative temperature
-# -----------------------------
-CT = xr.apply_ufunc(
-    gsw.CT_from_t,
-    da_salt,
-    da_temp,
-    p,
-    vectorize=True
-)
+    dist = (lat2d - lat)**2 + (lon2d - lon)**2
+    j, i = np.unravel_index(np.argmin(dist.values), dist.shape)
 
-# -----------------------------
-# Density
-# -----------------------------
-rho = xr.apply_ufunc(
-    gsw.rho,
-    da_salt,
-    CT,
-    p,
-    vectorize=True
-)
+    da_temp = ds_temp.isel(nlat=j, nlon=i)
+    da_salt = ds_salt.isel(nlat=j, nlon=i)
+    
+    # -----------------------------
+    # Depth (m)
+    # -----------------------------
+    z = da_temp["z_t"].values / 100.0
+    z = np.squeeze(z)
+    z_m = da_temp["z_t"] / 100.0
 
-# -----------------------------
-# Horizontal mean profile
-# -----------------------------
-rho_prof = rho.mean(dim=["nlat", "nlon"]).squeeze()
-rho_vals = rho_prof.values
+    # -----------------------------
+    # Pressure
+    # -----------------------------
+    p = xr.apply_ufunc(
+        gsw.p_from_z,
+        -z_m,
+        lat,
+        vectorize=True
+    )
 
-# -----------------------------
-# sort + smooth
-# -----------------------------
-sort_idx = np.argsort(z)
-z = z[sort_idx]
-rho_vals = rho_vals[sort_idx]
+    # -----------------------------
+    # Conservative temperature
+    # -----------------------------
+    CT = xr.apply_ufunc(
+        gsw.CT_from_t,
+        da_salt,
+        da_temp,
+        p,
+        vectorize=True
+    )
 
-rho_smooth = nd.gaussian_filter1d(rho_vals, sigma=2)
+    # -----------------------------
+    # Density
+    # -----------------------------
+    rho = xr.apply_ufunc(
+        gsw.rho,
+        da_salt,
+        CT,
+        p,
+        vectorize=True
+    )
 
-# -----------------------------
-# gradient + MLD
-# -----------------------------
-drho_dz = np.gradient(rho_smooth, z)
+    # -----------------------------
+    # Profile (already single point)
+    # -----------------------------
+    rho_vals = rho.squeeze().values
 
-threshold = 0.01
-idx = np.where(np.abs(drho_dz) > threshold)[0]
+    # -----------------------------
+    # sort + smooth
+    # -----------------------------
+    sort_idx = np.argsort(z)
+    z = z[sort_idx]
+    rho_vals = rho_vals[sort_idx]
 
-mld_value = z[idx[0]] if len(idx) > 0 else np.nan
+    rho_smooth = nd.gaussian_filter1d(rho_vals, sigma=2)
 
-# -----------------------------
-# SAVE RESULTS
-# -----------------------------
-os.makedirs("data_cache", exist_ok=True)
-np.savez(
-    "data_cache/mld_results.npz",
-    z=z,
-    rho_smooth=rho_smooth,
-    mld_value=mld_value
-)
+    # -----------------------------
+    # gradient + MLD
+    # -----------------------------
+    drho_dz = np.gradient(rho_smooth, z)
 
-print("Saved MLD results.")
+    threshold = 0.01
+    idx = np.where(np.abs(drho_dz) > threshold)[0]
+
+    mld_value = z[idx[0]] if len(idx) > 0 else np.nan
+
+    return z, rho_smooth, mld_value
