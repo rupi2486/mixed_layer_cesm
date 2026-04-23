@@ -2,14 +2,13 @@ import numpy as np
 import xarray as xr
 import scipy.ndimage as nd
 import gsw
-import os
 from mixed_layer_cesm import open_cesm2le
 
 
 def compute_mld(lat, lon, time):
 
     # -----------------------------
-    # Load temperature
+    # Load datasets (time slice only)
     # -----------------------------
     ds_temp = open_cesm2le(
         "TEMP",
@@ -19,9 +18,6 @@ def compute_mld(lat, lon, time):
         members=0,
     ).sel(time=time).load()
 
-    # -----------------------------
-    # Load salinity
-    # -----------------------------
     ds_salt = open_cesm2le(
         "SALT",
         component="ocn",
@@ -30,30 +26,68 @@ def compute_mld(lat, lon, time):
         members=0,
     ).sel(time=time).load()
 
-    lat2d = ds_temp["nlat"]
-    lon2d = ds_temp["nlon"]
+    # -----------------------------
+    # Align datasets
+    # -----------------------------
+    ds_temp, ds_salt = xr.align(ds_temp, ds_salt, join="inner")
 
-    dist = (lat2d - lat)**2 + (lon2d - lon)**2
-    j, i = np.unravel_index(np.argmin(dist.values), dist.shape)
+    # -----------------------------
+    # Get grid
+    # -----------------------------
+    lat2d = ds_temp["lat"]
+    lon2d = ds_temp["lon"]
 
+    # -----------------------------
+    # Handle longitude wrapping
+    # -----------------------------
+    lon_model = lon2d.values
+    lon_input = lon
+
+    lon_diff = np.abs(lon_model - lon_input)
+    lon_diff = np.minimum(lon_diff, 360 - lon_diff)
+
+    # -----------------------------
+    # Mask invalid (land) points
+    # -----------------------------
+    surface_temp = ds_temp.isel(z_t=0)
+    mask = np.isnan(surface_temp)
+
+    # -----------------------------
+    # Distance to all valid points
+    # -----------------------------
+    dist = (lat2d - lat)**2 + lon_diff**2
+    dist = dist.where(~mask)
+
+    # -----------------------------
+    # Find nearest valid ocean point
+    # -----------------------------
+    j, i = np.unravel_index(np.nanargmin(dist.values), dist.shape)
+
+    # -----------------------------
+    # Extract vertical profiles
+    # -----------------------------
     da_temp = ds_temp.isel(nlat=j, nlon=i)
     da_salt = ds_salt.isel(nlat=j, nlon=i)
-    
+
+    # Safety check
+    if da_temp.size == 0 or da_salt.size == 0:
+        raise ValueError("Selected point has no valid ocean data")
+
     # -----------------------------
     # Depth (m)
     # -----------------------------
-    z = da_temp["z_t"].values / 100.0
-    z = np.squeeze(z)
+    z = (da_temp["z_t"].values / 100.0)
     z_m = da_temp["z_t"] / 100.0
 
     # -----------------------------
     # Pressure
     # -----------------------------
+    lat_point = float(lat2d.values[j, i])
+
     p = xr.apply_ufunc(
         gsw.p_from_z,
         -z_m,
-        lat,
-        vectorize=True
+        lat_point,
     )
 
     # -----------------------------
@@ -64,7 +98,6 @@ def compute_mld(lat, lon, time):
         da_salt,
         da_temp,
         p,
-        vectorize=True
     )
 
     # -----------------------------
@@ -75,13 +108,9 @@ def compute_mld(lat, lon, time):
         da_salt,
         CT,
         p,
-        vectorize=True
     )
 
-    # -----------------------------
-    # Profile (already single point)
-    # -----------------------------
-    rho_vals = rho.squeeze().values
+    rho_vals = rho.values.squeeze()
 
     # -----------------------------
     # sort + smooth
