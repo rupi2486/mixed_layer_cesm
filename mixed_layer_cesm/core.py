@@ -1,8 +1,10 @@
+
 import numpy as np
 import xarray as xr
 
 BUCKET = "ncar-cesm2-lens"
 _STORAGE_OPTIONS = {"anon": True}
+_OCN_GRID_URL = f"s3://{BUCKET}/ocn/static/grid.zarr"
 
 SCENARIOS = ("historical", "ssp370")
 FORCINGS = ("cmip6", "smbb")
@@ -109,7 +111,8 @@ def open_cesm2le(
     if component == "atm":
         da = _sel_atm(da, lat, lon)
     elif component == "ocn":
-        da = _sel_ocn(da, ds, lat, lon)
+        grid = xr.open_zarr(_OCN_GRID_URL, storage_options=_STORAGE_OPTIONS, consolidated=True)
+        da = _sel_ocn(da, grid, lat, lon)
 
     return da
 
