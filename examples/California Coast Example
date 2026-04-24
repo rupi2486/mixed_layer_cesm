@@ -1,0 +1,2 @@
+mld-cli --lat 34 --lon -119 --time 2023-07-12 --plot
+Run this in the terminal and it will give a density plot and mld for an area of the ocean off the coast of California. This is an example of a pretty typical mixed layer depth.
