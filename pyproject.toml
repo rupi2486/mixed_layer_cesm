@@ -14,6 +14,7 @@ dependencies = [
     "cftime",
     "zarr",
     "s3fs>=2026.3.0",
+    "matplotlib"
 ]
 
 [project.scripts]
