@@ -23,7 +23,7 @@ pip install -e .
 ---
 
 ## Quick start
-run mld-cli --lat ## --lon ### --time ####-##-## (replace the # with your lat lon and date) in terminal
+run mld-cli --lat ## --lon ### --time ####-##-## --plot (replace the # with your lat lon and date) in terminal, or if you dont need the plot just mld-cli --lat ## --lon ### --time ####-##-##
 
 ### Discover available variables
 

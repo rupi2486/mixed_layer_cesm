@@ -1,0 +1,2 @@
+mld-cli --lat 59 --lon 62 --time 2025-08-12 --plot
+run this in the terminal and it will give a density plot and mixed layer depth for the 
