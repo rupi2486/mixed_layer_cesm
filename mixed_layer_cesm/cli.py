@@ -12,12 +12,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Call your function
     z, rho, mld = compute_mld(args.lat, args.lon, args.time)
 
     print(f"MLD: {mld:.2f} meters")
 
-    # Optional: save output
     np.savez(
         "mld_output.npz",
         depth=z,
