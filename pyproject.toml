@@ -8,10 +8,15 @@ version = "0.1.0"
 description = "Mixed Layer Depth computation tools"
 dependencies = [
     "numpy",
-    "xarray",
+    "xarray>=2022.6",
     "scipy",
-    "gsw"
+    "gsw",
+    "cftime",
+    "zarr",
+    "s3fs>=2026.3.0",
+    "matplotlib"
 ]
 
 [project.scripts]
 mld-cli = "mixed_layer_cesm.cli:main"
+
