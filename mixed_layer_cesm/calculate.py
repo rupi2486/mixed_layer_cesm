@@ -1,11 +1,17 @@
+import cftime
 import numpy as np
 import xarray as xr
 import scipy.ndimage as nd
 import gsw
 from mixed_layer_cesm import open_cesm2le
+from mixed_layer_cesm.core import _OCN_GRID_URL, _STORAGE_OPTIONS
 
 
 def compute_mld(lat, lon, time):
+    # Parse "YYYY-MM-DD" string into a cftime object so sel(method="nearest")
+    # can compare it against the noleap calendar timestamps in the zarr store.
+    year, month, day = map(int, time.split("-"))
+    t = cftime.DatetimeNoLeap(year, month, day)
 
     # -----------------------------
     # Load datasets (time slice only)
@@ -16,7 +22,7 @@ def compute_mld(lat, lon, time):
         scenario="historical",
         forcing="cmip6",
         members=0,
-    ).sel(time=time).load()
+    ).sel(time=t, method="nearest").load()
 
     ds_salt = open_cesm2le(
         "SALT",
@@ -24,50 +30,56 @@ def compute_mld(lat, lon, time):
         scenario="historical",
         forcing="cmip6",
         members=0,
-    ).sel(time=time).load()
+    ).sel(time=t, method="nearest").load()
 
     # -----------------------------
     # Align datasets
     # -----------------------------
     ds_temp, ds_salt = xr.align(ds_temp, ds_salt, join="inner")
 
+    # Drop any extra dims (member_id, time) so the rest of the function
+    # always works with a clean (z_t, nlat, nlon) array.
+    # cftime string selection may return a size-1 time dim instead of a scalar.
+    _spatial_dims = {'z_t', 'nlat', 'nlon'}
+    for _dim in [d for d in ds_temp.dims if d not in _spatial_dims]:
+        ds_temp = ds_temp.isel({_dim: 0})
+        ds_salt = ds_salt.isel({_dim: 0})
+
     # -----------------------------
-    # Get grid
+    # Get grid (TLAT/TLONG are 2-D on the curvilinear POP grid)
     # -----------------------------
-    lat2d = ds_temp["lat"]
-    lon2d = ds_temp["lon"]
+    grid = xr.open_zarr(_OCN_GRID_URL, storage_options=_STORAGE_OPTIONS, consolidated=True)
+    lat2d = grid["TLAT"].values   # (nlat, nlon)
+    lon2d = grid["TLONG"].values  # (nlat, nlon), 0-360
 
     # -----------------------------
     # Handle longitude wrapping
     # -----------------------------
-    lon_model = lon2d.values
-    lon_input = lon
-
-    lon_diff = np.abs(lon_model - lon_input)
+    lon_diff = np.abs(lon2d - lon)
     lon_diff = np.minimum(lon_diff, 360 - lon_diff)
 
     # -----------------------------
     # Mask invalid (land) points
     # -----------------------------
-    surface_temp = ds_temp.isel(z_t=0)
+    surface_temp = ds_temp.isel(z_t=0).values  # (nlat, nlon)
     mask = np.isnan(surface_temp)
 
     # -----------------------------
     # Distance to all valid points
     # -----------------------------
     dist = (lat2d - lat)**2 + lon_diff**2
-    dist = dist.where(~mask)
+    dist[mask] = np.nan
 
     # -----------------------------
     # Find nearest valid ocean point
     # -----------------------------
-    j, i = np.unravel_index(np.nanargmin(dist.values), dist.shape)
+    j, i = np.unravel_index(np.nanargmin(dist), dist.shape)
 
     # -----------------------------
     # Extract vertical profiles
     # -----------------------------
-    da_temp = ds_temp.isel(nlat=j, nlon=i)
-    da_salt = ds_salt.isel(nlat=j, nlon=i)
+    da_temp = ds_temp.isel(nlat=j, nlon=i).squeeze()
+    da_salt = ds_salt.isel(nlat=j, nlon=i).squeeze()
 
     # Safety check
     if da_temp.size == 0 or da_salt.size == 0:
@@ -76,13 +88,13 @@ def compute_mld(lat, lon, time):
     # -----------------------------
     # Depth (m)
     # -----------------------------
-    z = (da_temp["z_t"].values / 100.0)
+    z = da_temp["z_t"].values / 100.0
     z_m = da_temp["z_t"] / 100.0
 
     # -----------------------------
     # Pressure
     # -----------------------------
-    lat_point = float(lat2d.values[j, i])
+    lat_point = float(lat2d[j, i])
 
     p = xr.apply_ufunc(
         gsw.p_from_z,
