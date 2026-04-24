@@ -1,51 +1,29 @@
 import argparse
-from mixed_layer_cesm.calculate import compute_mld
-import os
 import numpy as np
+from mixed_layer_cesm.calculate import compute_mld
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run Mixed Layer Depth calculation"
-    )
+    parser = argparse.ArgumentParser(description="Compute Mixed Layer Depth")
 
-    parser.add_argument("--lat", type=float, required=True,
-                        help="Latitude (single value)")
-
-    parser.add_argument("--lon", type=float, required=True,
-                        help="Longitude (single value)")
-
-    parser.add_argument("--time", type=str, required=True,
-                        help="Date (YYYY-MM-DD)")
-
-    parser.add_argument("-o", "--output",
-                        default="data_cache/mld_results.npz",
-                        help="Output file path")
+    parser.add_argument("--lat", type=float, required=True, help="Latitude")
+    parser.add_argument("--lon", type=float, required=True, help="Longitude")
+    parser.add_argument("--time", type=str, required=True, help="Time (YYYY-MM-DD)")
 
     args = parser.parse_args()
 
-    # run core computation (NOW returns tuple)
-    z, rho_smooth, mld_value = compute_mld(
-        args.lat,
-        args.lon,
-        args.time
-    )
+    # Call your function
+    z, rho, mld = compute_mld(args.lat, args.lon, args.time)
 
-    # save
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    print(f"MLD: {mld:.2f} meters")
 
+    # Optional: save output
     np.savez(
-        args.output,
-        z=z,
-        rho_smooth=rho_smooth,
-        mld_value=mld_value,
-        lat=args.lat,
-        lon=args.lon,
-        time=args.time
+        "mld_output.npz",
+        depth=z,
+        density=rho,
+        mld=mld
     )
-
-    print(f"Saved MLD results → {args.output}")
-    print(f"MLD = {mld_value:.2f} m")
 
 
 if __name__ == "__main__":
