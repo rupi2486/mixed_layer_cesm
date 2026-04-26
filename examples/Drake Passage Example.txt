@@ -1,4 +1,4 @@
-mld-cli --lat -59 --lon 062 --time 2025-01-12 --plot
+mld-cli --lat -59 --lon -062 --time 2025-01-12 --plot
 Run this in the terminal and it will give a density plot for the Drake Passage. An area of the ocean near the tip of South America known for being extremely turbulent. 
 I chose this example because there is never a sharp density gradient change, which is why no mld value is calculated. 
 This is most likely because it is such a turbulent area that there is no easily defined mixed layer depth. The density just gradually increases with depth. 
