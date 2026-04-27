@@ -2,7 +2,6 @@ import argparse
 import numpy as np
 from mixed_layer_cesm.calculate import compute_mld
 
-
 def main():
     parser = argparse.ArgumentParser(description="Compute Mixed Layer Depth")
 
@@ -12,6 +11,7 @@ def main():
     parser.add_argument("--plot", action="store_true", help="Show density profile plot with MLD marked")
 
     args = parser.parse_args()
+    print(args)
 
     z, rho, mld = compute_mld(args.lat, args.lon, args.time)
 
