@@ -14,7 +14,7 @@ def compute_mld(lat, lon, time):
     t = cftime.DatetimeNoLeap(year, month, day)
 
     # -----------------------------
-    # Load datasets (time slice only)
+    # Load datasets 
     # -----------------------------
     ds_temp = open_cesm2le(
         "TEMP",
