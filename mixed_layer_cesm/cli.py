@@ -13,7 +13,7 @@ def main():
     args = parser.parse_args()
     print(args)
 
-    z, rho, mld = compute_mld(args.lat, args.lon, args.time)
+    z, rho, mld, temp, salt = compute_mld(args.lat, args.lon, args.time)
 
     print(f"MLD: {mld:.2f} meters")
 
@@ -35,6 +35,46 @@ def main():
             )
         plt.gca().invert_yaxis()
         plt.xlabel("Density (kg/m³)")
+        plt.ylabel("Depth (m)")
+        plt.title(f"lat={args.lat}, lon={args.lon}, time={args.time}")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        temp_vals = temp.values if hasattr(temp, "values") else temp
+        plt.figure()
+        plt.plot(temp_vals, z, label="Temperature")
+        if not np.isnan(mld):
+            plt.axhline(mld, color="red", linestyle="--", label="MLD")
+            plt.text(
+                0.98, 0.95,
+                f"MLD = {mld:.1f} m",
+                transform=plt.gca().transAxes,
+                ha="right", va="top",
+                bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
+            )
+        plt.gca().invert_yaxis()
+        plt.xlabel("Temperature (°C)")
+        plt.ylabel("Depth (m)")
+        plt.title(f"lat={args.lat}, lon={args.lon}, time={args.time}")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        salt_vals = salt.values if hasattr(salt, "values") else salt
+        plt.figure()
+        plt.plot(salt_vals, z, label="Salinity")
+        if not np.isnan(mld):
+            plt.axhline(mld, color="red", linestyle="--", label="MLD")
+            plt.text(
+                0.98, 0.95,
+                f"MLD = {mld:.1f} m",
+                transform=plt.gca().transAxes,
+                ha="right", va="top",
+                bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
+            )
+        plt.gca().invert_yaxis()
+        plt.xlabel("Salinity (g/kg)")
         plt.ylabel("Depth (m)")
         plt.title(f"lat={args.lat}, lon={args.lon}, time={args.time}")
         plt.legend()

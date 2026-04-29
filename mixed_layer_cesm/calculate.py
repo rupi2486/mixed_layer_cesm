@@ -143,4 +143,4 @@ def compute_mld(lat, lon, time):
 
     mld_value = z[idx[0]] if len(idx) > 0 else np.nan
 
-    return z, rho_smooth, mld_value
+    return z, rho_smooth, mld_value, da_temp, da_salt
