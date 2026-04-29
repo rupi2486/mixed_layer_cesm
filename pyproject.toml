@@ -15,8 +15,6 @@ dependencies = [
     "zarr",
     "s3fs>=2026.3.0",
     "matplotlib"
-    scipy.ndimage
-    argparse
 ]
 
 [project.scripts]
